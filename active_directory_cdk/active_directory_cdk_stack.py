@@ -55,15 +55,38 @@ class ActiveDirectoryCdkStack(Stack):
 
         cfn_dHCPOptions.node.add_dependency(cfn_microsoft_aD)
 
+        # Update VPC to use the DHCP options
+
+        dhcp_options_associations = ec2.CfnVPCDHCPOptionsAssociation(
+            self,
+            'ActiveDirectoryCfnDHCPOptionsAssociation', 
+            dhcp_options_id=cfn_dHCPOptions.ref, 
+            vpc_id=vpc.vpc_id
+            )
+
         # Create a new Role that can be used so that Windows instances can join your AWS Managed Microsoft AD domain
 
         ad_join_role = iam.Role(
             self,
             "JoinActiveDirectoryRole",
+            role_name="ActiveDirectoryEC2IAMRole",
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com")
             )
         ad_join_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedInstanceCore"))
         ad_join_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMDirectoryServiceAccess"))
+
+        # Not pretty, but hack from https://stackoverflow.com/questions/69308413/create-instanceprofile-with-cdk-and-python
+
+        ec2instanceprofile = iam.CfnInstanceProfile(
+            self,
+            "EC2InstanceProfile",
+            instance_profile_name="ActiveDirectoryEC2IAMRole",
+            roles=["ActiveDirectoryEC2IAMRole"]
+            )
+
+        # Provision EC2 Windows Instance
+
+
 
         # Output key information
 
