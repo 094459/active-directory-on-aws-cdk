@@ -1,6 +1,7 @@
 from aws_cdk import (
     aws_directoryservice as directoryservice,
     aws_ec2 as ec2,
+    aws_iam as iam,
     Stack,
     CfnOutput,
     Fn
@@ -47,22 +48,37 @@ class ActiveDirectoryCdkStack(Stack):
             self,
             "ActiveDirectoryCfnDHCPOptions",
             domain_name=f"{ad_props['domain']}",
-            domain_name_servers=[Fn.select(0,cfn_microsoft_aD.attr_dns_ip_addresses), Fn.select(1,cfn_microsoft_aD.attr_dns_ip_addresses)],
-            netbios_name_servers=[f"{ad_props['short-name']}"]
+            domain_name_servers=[Fn.select(0,cfn_microsoft_aD.attr_dns_ip_addresses), Fn.select(1,cfn_microsoft_aD.attr_dns_ip_addresses)]
             )
         
         # Make sure we do not try this until the Active Directory has completed
 
         cfn_dHCPOptions.node.add_dependency(cfn_microsoft_aD)
 
+        # Create a new Role that can be used so that Windows instances can join your AWS Managed Microsoft AD domain
 
+        ad_join_role = iam.Role(
+            self,
+            "JoinActiveDirectoryRole",
+            assumed_by=iam.ServicePrincipal("ec2.amazonaws.com")
+            )
+        ad_join_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedInstanceCore"))
+        ad_join_role.add_managed_policy(iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMDirectoryServiceAccess"))
 
+        # Output key information
 
         CfnOutput(
             self,
             id="ActiveDirectoryId",
             value=cfn_microsoft_aD.attr_alias,
             description="Active Directory ID"
+        )
+
+        CfnOutput(
+            self,
+            id="IAMRoleJoiningActiveDirectory",
+            value=ad_join_role.role_arn,
+            description="Role used to Join Active Directory"
         )
 
         CfnOutput(
