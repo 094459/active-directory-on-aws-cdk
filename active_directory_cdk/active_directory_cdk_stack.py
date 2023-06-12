@@ -2,7 +2,8 @@ from aws_cdk import (
     aws_directoryservice as directoryservice,
     aws_ec2 as ec2,
     Stack,
-    CfnOutput
+    CfnOutput,
+    Fn
 )
 from constructs import Construct
 
@@ -26,7 +27,7 @@ class ActiveDirectoryCdkStack(Stack):
         cfn_microsoft_aD = directoryservice.CfnMicrosoftAD(
             self,
             "DemoMicrosoftAD",
-            name="devad-ricsue.dev",
+            name=f"{ad_props['domain']}",
             password=f"{ad_props['adminpw']}",
             vpc_settings=directoryservice.CfnMicrosoftAD.VpcSettingsProperty(
                 subnet_ids=ad_lookup,
@@ -37,8 +38,25 @@ class ActiveDirectoryCdkStack(Stack):
             create_alias=False,
             edition="Standard",
             enable_sso=False,
-            short_name="devad"
+            short_name=f"{ad_props['short-name']}"
         )
+
+        # Optional - create DHCP options
+
+        cfn_dHCPOptions = ec2.CfnDHCPOptions(
+            self,
+            "ActiveDirectoryCfnDHCPOptions",
+            domain_name=f"{ad_props['domain']}",
+            domain_name_servers=[Fn.select(0,cfn_microsoft_aD.attr_dns_ip_addresses), Fn.select(1,cfn_microsoft_aD.attr_dns_ip_addresses)],
+            netbios_name_servers=[f"{ad_props['short-name']}"]
+            )
+        
+        # Make sure we do not try this until the Active Directory has completed
+
+        cfn_dHCPOptions.node.add_dependency(cfn_microsoft_aD)
+
+
+
 
         CfnOutput(
             self,
@@ -47,7 +65,20 @@ class ActiveDirectoryCdkStack(Stack):
             description="Active Directory ID"
         )
 
-        # getAtt("DnsIpAddresses"
+        CfnOutput(
+            self,
+            id="ActiveDirectoryDNS-1",
+            value=Fn.select(0,cfn_microsoft_aD.attr_dns_ip_addresses),
+            description="Active Directory DNS IPs - First"
+        )
+        CfnOutput(
+            self,
+            id="ActiveDirectoryDNS-2",
+            value=Fn.select(1,cfn_microsoft_aD.attr_dns_ip_addresses),
+            description="Active Directory DNS IPs - Second"
+        )
+
+
 
 
 

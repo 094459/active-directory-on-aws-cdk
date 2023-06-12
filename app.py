@@ -8,7 +8,9 @@ from active_directory_cdk.active_directory_vpc_cdk_stack import ActiveDirectoryV
 
 env_EU=cdk.Environment(region="eu-west-1", account="xxxxx")
 ad_props = {
-    'adminpw': 'xxxx'
+    'adminpw': 'xxxxx',
+    'domain' : 'devad.ricsue.dev',
+    'short-name' : 'devad'
     }
 
 app = cdk.App()
